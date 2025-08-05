@@ -10,3 +10,5 @@ DISCORD_TOKEN=your_token
 ```bash
 node bot.js
 ```
+
+The bot will register the `/status` command.
