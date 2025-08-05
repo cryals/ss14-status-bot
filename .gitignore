@@ -85,6 +85,5 @@ secrets/
 config/secrets.json
 
 # Package lock
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
