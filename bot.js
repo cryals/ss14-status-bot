@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, PermissionFlagsBits, ActivityType } = require('discord.js');
 const fetch = require('node-fetch');
 const fs = require('fs').promises;
 const path = require('path');
@@ -17,7 +17,6 @@ const STORAGE_PATH = path.join(__dirname, 'status_messages.json');
 
 // Форматирование времени в 24-часовом формате по МСК (UTC+3)
 function formatTime(date) {
-    // Создаем новый объект даты с учетом московского времени (UTC+3)
     const options = {
         hour: '2-digit',
         minute: '2-digit',
@@ -28,13 +27,9 @@ function formatTime(date) {
         timeZone: 'Europe/Moscow'
     };
     
-    // Форматируем дату с использованием Intl API
     const formatted = new Intl.DateTimeFormat('ru-RU', options).format(date);
-    
-    // Разделяем на время и дату
     const [datePart, timePart] = formatted.split(', ');
     
-    // Возвращаем в нужном формате: "ЧЧ:ММ ДД.ММ.ГГГГ"
     return `${timePart} ${datePart}`;
 }
 
@@ -82,7 +77,7 @@ function createStatusEmbed(data) {
     const roundTime = calculateRoundTime(data.round_start_time);
     
     return new EmbedBuilder()
-        .setDescription(`**Онлайн:** ${data.players}\n**Карта:** ${data.map}\n**Раунд:** ${data.round_id}\n**Режим:** ${data.preset}\n**Время от начала смены:** ${roundTime}`)
+        .setDescription(`**Онлайн:** ${data.players}\n**Карта:** ${data.map || 'Неизвестно'}\n**Раунд:** ${data.round_id}\n**Режим:** ${data.preset}\n**Время от начала смены:** ${roundTime}`)
         .setColor(14745344)
         .setAuthor({ 
             name: data.name, 
@@ -117,10 +112,35 @@ async function saveStatusMessages(messages) {
     }
 }
 
-// Функция обновления сообщений
+// Функция обновления сообщений и статуса бота
 async function updateStatusMessages() {
     const data = await fetchServerStatus();
     const embed = createStatusEmbed(data);
+    
+    // Обновление статуса бота с отображением онлайн
+    try {
+        if (data && data.players !== undefined && data.soft_max_players !== undefined) {
+            client.user.setPresence({
+                activities: [{
+                    name: `Онлайн: ${data.players}/${data.soft_max_players}`,
+                    type: ActivityType.Custom
+                }],
+                status: 'online'
+            });
+            console.log(`Статус бота обновлен: Онлайн: ${data.players}/${data.soft_max_players}`);
+        } else {
+            client.user.setPresence({
+                activities: [{
+                    name: 'Статус: Ошибка',
+                    type: ActivityType.Custom
+                }],
+                status: 'dnd'
+            });
+            console.log('Статус бота: Ошибка получения данных');
+        }
+    } catch (error) {
+        console.error('Ошибка обновления статуса бота:', error);
+    }
     
     try {
         const messages = await loadStatusMessages();
