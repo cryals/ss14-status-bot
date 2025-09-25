@@ -1,21 +1,26 @@
 {
   "name": "botyara",
   "version": "1.0.0",
-  "description": "discrod bot status ss14",
-  "license": "SEE LICENSE IN LICENSE",
-  "author": "AL-S <als@stopco.ru>",
-  "type": "commonjs",
-  "main": "bot.js",
+  "description": "Discord бот для отображения статуса сервера",
+  "main": "index.js",
   "scripts": {
-    "start": "node bot.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "dependencies": {
-    "discord.js": "^14.21.0",
-    "dotenv": "^17.2.1",
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.3.1",
     "node-fetch": "^2.7.0"
   },
-  "keywords": [],
-  "private": true,
-  "copyright": "© 2025 AL-S. All Rights Reserved."
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "status",
+    "server"
+  ],
+  "author": "AL-S",
+  "license": "ALL RIGHTS RESERVED"
 }

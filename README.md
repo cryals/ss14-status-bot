@@ -2,10 +2,8 @@
 ```bash
 npm install
 ```
-Create a `.env` file:
-```env
-DISCORD_TOKEN=your_token
-```
+Create a `.env` file following the example of `.env-example`
+
 ## Running
 ```bash
 node bot.js

@@ -12,8 +12,12 @@ const client = new Client({
     ]
 });
 
-// Путь к файлу для сохранения сообщений
-const STORAGE_PATH = path.join(__dirname, 'status_messages.json');
+// Конфигурация с значениями по умолчанию
+const STORAGE_PATH = path.resolve(process.env.STORAGE_PATH || './status_messages.json');
+const SERVER_STATUS_URL = process.env.SERVER_STATUS_URL || 'https://lizard.spacestation14.io/server/status';
+const SERVER_ICON_URL = process.env.SERVER_ICON_URL || 'https://raw.githubusercontent.com/cryals/ss14-status-bot/refs/heads/main/ss14_logo.png';
+const EMBED_COLOR = parseInt(process.env.EMBED_COLOR, 10) || 14745344;
+const UPDATE_INTERVAL_MS = parseInt(process.env.UPDATE_INTERVAL_MS, 10) || 60000;
 
 // Форматирование времени в 24-часовом формате по МСК (UTC+3)
 function formatTime(date) {
@@ -23,30 +27,30 @@ function formatTime(date) {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
-        hour12: false, // 24-часовой формат
+        hour12: false,
         timeZone: 'Europe/Moscow'
     };
-    
+
     const formatted = new Intl.DateTimeFormat('ru-RU', options).format(date);
     const [datePart, timePart] = formatted.split(', ');
-    
+
     return `${timePart} ${datePart}`;
 }
 
 // Расчет времени раунда
 function calculateRoundTime(startTime) {
     if (!startTime) return "В лобби";
-    
+
     const start = new Date(startTime);
     const now = new Date();
     const diffMs = now - start;
-    
+
     if (diffMs < 0) return "0 мин";
-    
+
     const diffMinutes = Math.floor(diffMs / 60000);
     const hours = Math.floor(diffMinutes / 60);
     const minutes = diffMinutes % 60;
-    
+
     if (hours > 0) {
         return `${hours}ч ${minutes}мин`;
     }
@@ -56,7 +60,7 @@ function calculateRoundTime(startTime) {
 // Получение статуса сервера
 async function fetchServerStatus() {
     try {
-        const response = await fetch('http://85.192.49.3:1212/status');
+        const response = await fetch(SERVER_STATUS_URL);
         return await response.json();
     } catch (error) {
         console.error('Ошибка при получении данных:', error);
@@ -73,18 +77,17 @@ function createStatusEmbed(data) {
             .setColor(0xFF0000)
             .setFooter({ text: `Обновлено: ${formatTime(new Date())}` });
     }
-
     const roundTime = calculateRoundTime(data.round_start_time);
-    
+
     return new EmbedBuilder()
         .setDescription(`**Онлайн:** ${data.players}\n**Карта:** ${data.map || 'Неизвестно'}\n**Раунд:** ${data.round_id}\n**Режим:** ${data.preset}\n**Время от начала смены:** ${roundTime}`)
-        .setColor(14745344)
-        .setAuthor({ 
-            name: data.name, 
-            iconURL: 'https://i.postimg.cc/SRSb1YGh/123123.png'.trim() 
+        .setColor(EMBED_COLOR)
+        .setAuthor({
+            name: data.name,
+            iconURL: SERVER_ICON_URL.trim()
         })
-        .setFooter({ 
-            text: `Обновлено: ${formatTime(new Date())}` 
+        .setFooter({
+            text: `Обновлено: ${formatTime(new Date())}`
         });
 }
 
@@ -116,7 +119,7 @@ async function saveStatusMessages(messages) {
 async function updateStatusMessages() {
     const data = await fetchServerStatus();
     const embed = createStatusEmbed(data);
-    
+
     // Обновление статуса бота с отображением онлайн
     try {
         if (data && data.players !== undefined && data.soft_max_players !== undefined) {
@@ -141,10 +144,10 @@ async function updateStatusMessages() {
     } catch (error) {
         console.error('Ошибка обновления статуса бота:', error);
     }
-    
+
     try {
         const messages = await loadStatusMessages();
-        
+
         for (const msg of messages) {
             try {
                 const channel = await client.channels.fetch(msg.channelId);
@@ -153,7 +156,7 @@ async function updateStatusMessages() {
             } catch (error) {
                 console.error(`Ошибка обновления сообщения ${msg.messageId}:`, error);
                 // Удаляем нерабочее сообщение из списка
-                const updatedMessages = messages.filter(m => 
+                const updatedMessages = messages.filter(m =>
                     m.messageId !== msg.messageId || m.channelId !== msg.channelId
                 );
                 await saveStatusMessages(updatedMessages);
@@ -166,7 +169,7 @@ async function updateStatusMessages() {
 
 client.once('ready', async () => {
     console.log(`Бот запущен как ${client.user.tag}!`);
-    
+
     // Регистрация команд
     try {
         await client.application.commands.set([
@@ -187,7 +190,7 @@ client.once('ready', async () => {
                         type: 7,
                         description: 'Канал для отправки статуса',
                         required: true,
-                        channel_types: [0, 5] // Только текстовые каналы
+                        channel_types: [0, 5]
                     }
                 ]
             }
@@ -196,44 +199,44 @@ client.once('ready', async () => {
     } catch (error) {
         console.error('Ошибка регистрации команд:', error);
     }
-    
+
     // Запуск периодического обновления
-    await updateStatusMessages(); // Обновить сразу после запуска
-    setInterval(updateStatusMessages, 60000); // Обновление каждые 60 секунд
+    await updateStatusMessages();
+    setInterval(updateStatusMessages, UPDATE_INTERVAL_MS);
 });
 
 client.on('interactionCreate', async interaction => {
     if (!interaction.isCommand()) return;
-    
+
     // Команда ping
     if (interaction.commandName === 'ping') {
         await interaction.reply({ content: 'Pong! 🏓', ephemeral: true });
         return;
     }
-    
+
     // Команда единоразового статуса
     if (interaction.commandName === 'status') {
         await interaction.deferReply({ ephemeral: true });
-        
+
         const data = await fetchServerStatus();
         const embed = createStatusEmbed(data);
-        
-        await interaction.editReply({ 
-            embeds: [embed] 
+
+        await interaction.editReply({
+            embeds: [embed]
         });
     }
-    
+
     // Команда запуска автообновления
     if (interaction.commandName === 'send-status') {
         await interaction.deferReply({ ephemeral: true });
-        
+
         // Проверка прав администратора
         if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
             return interaction.editReply('❌ Эта команда доступна только администраторам!');
         }
-        
+
         const channel = interaction.options.getChannel('channel');
-        
+
         try {
             // Проверка прав бота
             const botPermissions = channel.permissionsFor(interaction.guild.members.me);
@@ -246,12 +249,12 @@ client.on('interactionCreate', async interaction => {
             if (!botPermissions.has(PermissionFlagsBits.EmbedLinks)) {
                 return interaction.editReply('❌ У бота нет прав отправлять embed-сообщения!');
             }
-            
+
             const data = await fetchServerStatus();
             const embed = createStatusEmbed(data);
-            
+
             const sentMessage = await channel.send({ embeds: [embed] });
-            
+
             // Сохраняем сообщение в файл
             const messages = await loadStatusMessages();
             messages.push({
@@ -259,7 +262,7 @@ client.on('interactionCreate', async interaction => {
                 messageId: sentMessage.id
             });
             await saveStatusMessages(messages);
-            
+
             await interaction.editReply(`✅ Автообновление запущено в канале ${channel}!`);
             console.log(`Добавлено автообновление в канал ${channel.name} (ID: ${sentMessage.id})`);
         } catch (error) {
